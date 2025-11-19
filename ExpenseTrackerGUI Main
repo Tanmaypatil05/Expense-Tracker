@@ -1,0 +1,255 @@
+import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+import java.awt.*;
+import java.awt.event.*;
+
+public class ExpenseTrackerGUI extends JFrame {
+    private TransactionManager manager;
+    private DefaultTableModel tableModel;
+    private JTable transactionTable;
+    private JLabel balanceLabel;
+    private JLabel incomeLabel;
+    private JLabel expenseLabel;
+
+    public ExpenseTrackerGUI() {
+        manager = new TransactionManager();
+
+        // Load existing transactions
+        for (Transaction t : FileHandler.loadTransactions()) {
+            manager.addTransaction(t);
+        }
+
+        initializeUI();
+        refreshTable();
+        updateLabels();
+    }
+
+    private void initializeUI() {
+        setTitle("💰 Expense Tracker");
+        setSize(900, 600);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLocationRelativeTo(null);
+
+        // Main panel with tabs
+        JTabbedPane tabbedPane = new JTabbedPane();
+
+        // Add Transaction Tab
+        tabbedPane.addTab("Add Transaction", createAddTransactionPanel());
+
+        // View Transactions Tab
+        tabbedPane.addTab("View Transactions", createViewTransactionsPanel());
+
+        // Reports Tab
+        tabbedPane.addTab("Reports", createReportsPanel());
+
+        add(tabbedPane);
+    }
+
+    private JPanel createAddTransactionPanel() {
+        JPanel panel = new JPanel(new BorderLayout(10, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+        // Summary Panel at top
+        JPanel summaryPanel = new JPanel(new GridLayout(1, 3, 10, 0));
+        balanceLabel = new JLabel("Balance: ₹0.00", SwingConstants.CENTER);
+        incomeLabel = new JLabel("Income: ₹0.00", SwingConstants.CENTER);
+        expenseLabel = new JLabel("Expense: ₹0.00", SwingConstants.CENTER);
+
+        balanceLabel.setFont(new Font("Arial", Font.BOLD, 16));
+        incomeLabel.setFont(new Font("Arial", Font.BOLD, 16));
+        expenseLabel.setFont(new Font("Arial", Font.BOLD, 16));
+
+        balanceLabel.setForeground(new Color(33, 128, 141));
+        incomeLabel.setForeground(new Color(34, 197, 94));
+        expenseLabel.setForeground(new Color(239, 68, 68));
+
+        summaryPanel.add(balanceLabel);
+        summaryPanel.add(incomeLabel);
+        summaryPanel.add(expenseLabel);
+        panel.add(summaryPanel, BorderLayout.NORTH);
+
+        // Form Panel
+        JPanel formPanel = new JPanel(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(10, 10, 10, 10);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        // Type
+        gbc.gridx = 0; gbc.gridy = 0;
+        formPanel.add(new JLabel("Type:"), gbc);
+
+        gbc.gridx = 1;
+        String[] types = {"INCOME", "EXPENSE"};
+        JComboBox<String> typeCombo = new JComboBox<>(types);
+        formPanel.add(typeCombo, gbc);
+
+        // Amount
+        gbc.gridx = 0; gbc.gridy = 1;
+        formPanel.add(new JLabel("Amount (₹):"), gbc);
+
+        gbc.gridx = 1;
+        JTextField amountField = new JTextField(20);
+        formPanel.add(amountField, gbc);
+
+        // Category
+        gbc.gridx = 0; gbc.gridy = 2;
+        formPanel.add(new JLabel("Category:"), gbc);
+
+        gbc.gridx = 1;
+        String[] categories = {"Food", "Rent", "Entertainment", "Transport", "Salary", "Shopping", "Healthcare", "Other"};
+        JComboBox<String> categoryCombo = new JComboBox<>(categories);
+        categoryCombo.setEditable(true);
+        formPanel.add(categoryCombo, gbc);
+
+        // Description
+        gbc.gridx = 0; gbc.gridy = 3;
+        formPanel.add(new JLabel("Description:"), gbc);
+
+        gbc.gridx = 1;
+        JTextField descField = new JTextField(20);
+        formPanel.add(descField, gbc);
+
+        // Add Button
+        gbc.gridx = 0; gbc.gridy = 4;
+        gbc.gridwidth = 2;
+        JButton addButton = new JButton("Add Transaction");
+        addButton.setBackground(new Color(33, 128, 141));
+        addButton.setForeground(Color.WHITE);
+        addButton.setFocusPainted(false);
+        addButton.setFont(new Font("Arial", Font.BOLD, 14));
+
+        addButton.addActionListener(e -> {
+            try {
+                String type = (String) typeCombo.getSelectedItem();
+                double amount = Double.parseDouble(amountField.getText());
+                String category = (String) categoryCombo.getSelectedItem();
+                String description = descField.getText();
+
+                if (amount <= 0) {
+                    JOptionPane.showMessageDialog(this, "Amount must be positive!", "Error", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+
+                Transaction transaction = new Transaction(type, amount, category, description);
+                manager.addTransaction(transaction);
+                FileHandler.saveTransactions(manager.getAllTransactions());
+
+                // Clear fields
+                amountField.setText("");
+                descField.setText("");
+
+                refreshTable();
+                updateLabels();
+
+                JOptionPane.showMessageDialog(this, "Transaction added successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(this, "Please enter a valid amount!", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+
+        formPanel.add(addButton, gbc);
+        panel.add(formPanel, BorderLayout.CENTER);
+
+        return panel;
+    }
+
+    private JPanel createViewTransactionsPanel() {
+        JPanel panel = new JPanel(new BorderLayout(10, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+        // Table
+        String[] columns = {"Date & Time", "Type", "Amount (₹)", "Category", "Description"};
+        tableModel = new DefaultTableModel(columns, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+
+        transactionTable = new JTable(tableModel);
+        transactionTable.setRowHeight(25);
+        transactionTable.getTableHeader().setFont(new Font("Arial", Font.BOLD, 12));
+
+        JScrollPane scrollPane = new JScrollPane(transactionTable);
+        panel.add(scrollPane, BorderLayout.CENTER);
+
+        // Refresh Button
+        JButton refreshButton = new JButton("Refresh");
+        refreshButton.addActionListener(e -> refreshTable());
+        panel.add(refreshButton, BorderLayout.SOUTH);
+
+        return panel;
+    }
+
+    private JPanel createReportsPanel() {
+        JPanel panel = new JPanel(new BorderLayout(10, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+        JTextArea reportArea = new JTextArea();
+        reportArea.setEditable(false);
+        reportArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        JScrollPane scrollPane = new JScrollPane(reportArea);
+        panel.add(scrollPane, BorderLayout.CENTER);
+
+        // Buttons Panel
+        JPanel buttonPanel = new JPanel(new FlowLayout());
+
+        JButton dailyButton = new JButton("Daily Report");
+        JButton monthlyButton = new JButton("Monthly Report");
+        JButton yearlyButton = new JButton("Yearly Report");
+
+        dailyButton.addActionListener(e -> {
+            String report = ReportGenerator.generateDailyReport(manager.getAllTransactions());
+            reportArea.setText(report);
+        });
+
+        monthlyButton.addActionListener(e -> {
+            String report = ReportGenerator.generateMonthlyReport(manager.getAllTransactions());
+            reportArea.setText(report);
+        });
+
+        yearlyButton.addActionListener(e -> {
+            String report = ReportGenerator.generateYearlyReport(manager.getAllTransactions());
+            reportArea.setText(report);
+        });
+
+        buttonPanel.add(dailyButton);
+        buttonPanel.add(monthlyButton);
+        buttonPanel.add(yearlyButton);
+
+        panel.add(buttonPanel, BorderLayout.SOUTH);
+
+        return panel;
+    }
+
+    private void refreshTable() {
+        tableModel.setRowCount(0);
+        for (Transaction t : manager.getAllTransactions()) {
+            Object[] row = {
+                    t.getFormattedDate(),
+                    t.getType(),
+                    String.format("%.2f", t.getAmount()),
+                    t.getCategory(),
+                    t.getDescription()
+            };
+            tableModel.addRow(row);
+        }
+    }
+
+    private void updateLabels() {
+        double balance = manager.calculateBalance();
+        double income = manager.getTotalIncome();
+        double expense = manager.getTotalExpense();
+
+        balanceLabel.setText(String.format("Balance: ₹%.2f", balance));
+        incomeLabel.setText(String.format("Income: ₹%.2f", income));
+        expenseLabel.setText(String.format("Expense: ₹%.2f", expense));
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> {
+            ExpenseTrackerGUI gui = new ExpenseTrackerGUI();
+            gui.setVisible(true);
+        });
+    }
+}
