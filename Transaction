@@ -1,0 +1,64 @@
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
+public class Transaction {
+    private String type; // "INCOME" or "EXPENSE"
+    private double amount;
+    private String category;
+    private String description;
+    private LocalDateTime dateTime;
+
+    public Transaction(String type, double amount, String category, String description) {
+        this.type = type;
+        this.amount = amount;
+        this.category = category;
+        this.description = description;
+        this.dateTime = LocalDateTime.now();
+    }
+
+    public Transaction(String type, double amount, String category, String description, LocalDateTime dateTime) {
+        this.type = type;
+        this.amount = amount;
+        this.category = category;
+        this.description = description;
+        this.dateTime = dateTime;
+    }
+
+    // Getters
+    public String getType() { return type; }
+    public double getAmount() { return amount; }
+    public String getCategory() { return category; }
+    public String getDescription() { return description; }
+    public LocalDateTime getDateTime() { return dateTime; }
+
+    public String getFormattedDate() {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
+        return dateTime.format(formatter);
+    }
+
+    @Override
+    public String toString() {
+        return String.format("%s | ₹%.2f | %s | %s | %s",
+                type, amount, category, description, getFormattedDate());
+    }
+
+    public String toCSV() {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        return String.format("%s,%s,%.2f,%s,%s",
+                dateTime.format(formatter), type, amount, category, description);
+    }
+
+    public static Transaction fromCSV(String csvLine) {
+        String[] parts = csvLine.split(",");
+        if (parts.length == 5) {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            LocalDateTime dateTime = LocalDateTime.parse(parts[0], formatter);
+            String type = parts[1];
+            double amount = Double.parseDouble(parts[2]);
+            String category = parts[3];
+            String description = parts[4];
+            return new Transaction(type, amount, category, description, dateTime);
+        }
+        return null;
+    }
+}
