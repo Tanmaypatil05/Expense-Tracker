@@ -1,0 +1,61 @@
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+public class ReportGenerator {
+
+    public static String generateDailyReport(List<Transaction> transactions) {
+        LocalDateTime now = LocalDateTime.now();
+        List<Transaction> dailyTransactions = filterTransactions(transactions, now.toLocalDate().atStartOfDay(), now);
+        return generateReport("Daily Report", dailyTransactions);
+    }
+
+    public static String generateMonthlyReport(List<Transaction> transactions) {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime startOfMonth = now.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0);
+        List<Transaction> monthlyTransactions = filterTransactions(transactions, startOfMonth, now);
+        return generateReport("Monthly Report", monthlyTransactions);
+    }
+
+    public static String generateYearlyReport(List<Transaction> transactions) {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime startOfYear = now.withDayOfYear(1).withHour(0).withMinute(0).withSecond(0);
+        List<Transaction> yearlyTransactions = filterTransactions(transactions, startOfYear, now);
+        return generateReport("Yearly Report", yearlyTransactions);
+    }
+
+    private static List<Transaction> filterTransactions(List<Transaction> transactions,
+                                                        LocalDateTime start, LocalDateTime end) {
+        List<Transaction> filtered = new ArrayList<>();
+        for (Transaction t : transactions) {
+            if (!t.getDateTime().isBefore(start) && !t.getDateTime().isAfter(end)) {
+                filtered.add(t);
+            }
+        }
+        return filtered;
+    }
+
+    private static String generateReport(String title, List<Transaction> transactions) {
+        StringBuilder report = new StringBuilder();
+        report.append("========== ").append(title).append(" ==========\n\n");
+
+        double totalIncome = 0;
+        double totalExpense = 0;
+
+        for (Transaction t : transactions) {
+            if (t.getType().equals("INCOME")) {
+                totalIncome += t.getAmount();
+            } else {
+                totalExpense += t.getAmount();
+            }
+        }
+
+        report.append(String.format("Total Income:  ₹%.2f\n", totalIncome));
+        report.append(String.format("Total Expense: ₹%.2f\n", totalExpense));
+        report.append(String.format("Net Balance:   ₹%.2f\n", totalIncome - totalExpense));
+        report.append("\nTransactions: ").append(transactions.size()).append("\n");
+        report.append("=====================================\n");
+
+        return report.toString();
+    }
+}
